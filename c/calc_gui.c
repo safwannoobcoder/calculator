@@ -7,16 +7,22 @@
  *      $(pkg-config --cflags --libs gtk+-3.0) -lm
  *   ./calc-gui
  *
- * How the parser is shared: calc.c is included as source with its main()
- * renamed out of the way, which gives this file access to evaluate(), g_ans
- * and g_error without editing calc.c. For a bigger project you would split the
- * engine into engine.c plus engine.h and link two objects instead — see the
- * note at the bottom of this file.
+ * Sharing the engine: calc.c is included as source with its main() renamed
+ * out of the way, which gives this file access to evaluate(), g_ans and the
+ * error buffer without editing calc.c.
+ *
+ * Name collision, and why the #define below exists: GLib declares a function
+ * called g_error(), and calc.c has a global array with the same name. Two
+ * declarations of g_error in one translation unit will not compile, so the
+ * array is renamed to calc_error_text for this file only. The real fix, for a
+ * bigger project, is to give the engine's globals a prefix of their own.
  */
 
 #define main calc_cli_main
+#define g_error calc_error_text
 #include "calc.c"
 #undef main
+#undef g_error
 
 #include <gtk/gtk.h>
 
@@ -214,7 +220,7 @@ static void do_equals(void)
     }
 
     if (!evaluate(source, &value)) {
-        snprintf(g_history, sizeof g_history, "error: %s", g_error);
+        snprintf(g_history, sizeof g_history, "error: %s", calc_error_text);
         update_labels();
         return;
     }
@@ -440,16 +446,19 @@ int main(int argc, char **argv)
 
 /*
  * Note on sharing the engine
- * -------------------------
+ * --------------------------
  * Including calc.c works and costs nothing at runtime, but it is a hack: the
  * parser is now compiled into two programs and cannot be unit tested on its
  * own. The clean version is:
  *
- *   engine.h   declarations: evaluate(), format_number(), g_ans, g_error
+ *   engine.h   declarations: evaluate(), g_ans, and the error buffer
  *   engine.c   the tokenizer, parser and libm calls (no main)
  *   calc.c     CLI: #include "engine.h"
  *   calc_gui.c GUI: #include "engine.h"
  *
  *   cc calc.c engine.c -o calc -lm
  *   cc calc_gui.c engine.c -o calc-gui $(pkg-config --cflags --libs gtk+-3.0) -lm
+ *
+ * Renaming the engine's globals to e.g. calc_error would also remove the need
+ * for the #define guard at the top of this file.
  */
