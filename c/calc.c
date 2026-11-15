@@ -51,6 +51,14 @@ static double g_ans;
 static int g_failed;
 static char g_error[160];
 
+/* One function per grammar rule. Forward declarations are required because
+ * the rules are mutually recursive: power -> unary -> power. */
+static double parse_expr(void);
+static double parse_term(void);
+static double parse_unary(void);
+static double parse_power(void);
+static double parse_atom(void);
+
 static void fail(const char *fmt, ...)
 {
     va_list args;
@@ -246,8 +254,6 @@ static void tokenize(const char *source)
         }
     }
 }
-
-static double parse_expr(void);
 
 static double parse_atom(void)
 {
